@@ -1,4 +1,24 @@
+# Environment
 .env
 projects/**/.env
+
+# OS
 .DS_Store
 Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+projects/**/node_modules/
+projects/**/.nuxt/
+projects/**/.output/
+projects/**/dist/
+projects/**/.next/
+
+# Logs
+*.log
+logs/
