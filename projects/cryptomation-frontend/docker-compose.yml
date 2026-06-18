@@ -1,0 +1,55 @@
+name: cryptomation-frontend
+
+# =============================================================================
+# Prerequisites:
+#   cd cryptomation-bootstrap && docker compose up -d   (nginx + shared network)
+#
+# Start:
+#   cp .env.example .env
+#   docker compose up -d
+#   docker exec cryptomation_nginx nginx -s reload
+#
+# Rebuild (e.g. after package.json changes):
+#   docker compose down -v && docker compose up --build -d
+# =============================================================================
+
+services:
+  cryptomation-frontend:
+    build:
+      # Build context = actual Next.js source (sibling to cryptomation-bootstrap)
+      context: ../../../cryptomation-frontend
+      # Dockerfile path resolved relative to this compose file
+      dockerfile: Dockerfile
+      target: development
+    container_name: cryptomation-frontend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      # Bind to all interfaces so nginx can reach it inside Docker network
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Polling ensures reliable HMR inside bind-mounted directories
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      # Source code from sibling frontend repo — live edit, no rebuild needed
+      - ../../../cryptomation-frontend:/app
+      # Named volume over node_modules so host packages don't shadow container ones.
+      # Populated from image layer (npm ci in deps stage) on first start.
+      - frontend_node_modules:/app/node_modules
+    networks:
+      - cryptomation_shared
+    # Port intentionally not exposed to host — access via nginx at cryptomation.local
+    # Uncomment for direct access when debugging:
+    # ports:
+    #   - "3000:3000"
+
+networks:
+  cryptomation_shared:
+    external: true
+
+volumes:
+  frontend_node_modules:
+    name: cryptomation_frontend_node_modules

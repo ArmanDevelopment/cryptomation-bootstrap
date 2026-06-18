@@ -1,0 +1,27 @@
+name: cryptomation-bootstrap
+
+# =============================================================================
+# ADDING A NEW PROJECT (this file never changes):
+#   1. Create projects/<name>/ with its own docker-compose.yml
+#   2. Add nginx/conf.d/<name>.conf (copy from an existing one and edit)
+#   3. cd projects/<name> && docker compose up -d
+#   4. docker exec cryptomation_nginx nginx -s reload
+# =============================================================================
+
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: cryptomation_nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    networks:
+      - cryptomation_shared
+
+networks:
+  cryptomation_shared:
+    name: cryptomation_shared
+    driver: bridge

@@ -1,0 +1,4 @@
+.env
+projects/**/.env
+.DS_Store
+Thumbs.db
