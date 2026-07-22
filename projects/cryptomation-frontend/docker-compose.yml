@@ -1,25 +1,24 @@
-name: cryptomation-frontend
-
 # =============================================================================
-# Prerequisites:
-#   cd cryptomation-bootstrap && docker compose up -d   (nginx + shared network)
+# Frontend app. Safe to run from this directory or via bootstrap.
 #
-# Start:
+# From this directory:
 #   cp .env.example .env
 #   docker compose up -d
-#   docker exec cryptomation_nginx nginx -s reload
 #
-# Rebuild (e.g. after package.json changes):
-#   docker compose down -v && docker compose up --build -d
+# From bootstrap (all projects):
+#   ./scripts/start.sh
 # =============================================================================
+
+include:
+  - path: ../../compose.infra.yml
 
 services:
   cryptomation-frontend:
     build:
       # Build context = actual Next.js source (sibling to cryptomation-bootstrap)
       context: ../../../cryptomation-frontend
-      # Dockerfile path resolved relative to this compose file
-      dockerfile: Dockerfile
+      # Dockerfile lives in bootstrap; path is relative to build context
+      dockerfile: ../cryptomation-bootstrap/projects/cryptomation-frontend/Dockerfile
       target: development
     container_name: cryptomation-frontend
     restart: unless-stopped
@@ -45,10 +44,6 @@ services:
     # Uncomment for direct access when debugging:
     # ports:
     #   - "3000:3000"
-
-networks:
-  cryptomation_shared:
-    external: true
 
 volumes:
   frontend_node_modules:

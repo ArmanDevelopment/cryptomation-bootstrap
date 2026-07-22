@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start bootstrap infra + all projects + reload nginx
+# Start bootstrap (includes all projects) + reload nginx
 # Usage: ./scripts/start.sh [--build]
 set -euo pipefail
 
@@ -12,30 +12,39 @@ if [[ ! -f "$ROOT/.env" ]]; then
   echo "[bootstrap] Created .env from .env.example — edit if needed."
 fi
 
-echo "[bootstrap] Starting shared infra..."
-docker compose -f "$ROOT/docker-compose.yml" up -d
-
-echo "[bootstrap] Waiting for cryptomation_shared network..."
-until docker network inspect cryptomation_shared >/dev/null 2>&1; do sleep 1; done
-
-# Start each project
+# Project .env files (services reference env_file: .env relative to each project)
 for project_dir in "$ROOT/projects"/*/; do
   name="$(basename "$project_dir")"
-  compose="$project_dir/docker-compose.yml"
-  [[ -f "$compose" ]] || continue
+  [[ -f "$project_dir/docker-compose.yml" ]] || continue
 
   if [[ ! -f "$project_dir/.env" && -f "$project_dir/.env.example" ]]; then
     cp "$project_dir/.env.example" "$project_dir/.env"
     echo "[$name] Created .env from .env.example — edit if needed."
   fi
-
-  echo "[$name] Starting..."
-  docker compose -f "$compose" up -d $BUILD_FLAG
 done
+
+echo "[bootstrap] Starting shared infra + included projects..."
+docker compose -f "$ROOT/docker-compose.yml" up -d $BUILD_FLAG
 
 echo "[nginx] Reloading..."
 docker exec cryptomation_nginx nginx -s reload
 
+# shellcheck disable=SC1091
+set -a
+source "$ROOT/.env"
+set +a
+PORT="${NGINX_HTTP_PORT:-80}"
+HOST="${NGINX_SERVER_NAME:-cryptomation.local}"
+if [[ "$PORT" == "80" ]]; then
+  URL="http://${HOST}/"
+else
+  URL="http://${HOST}:${PORT}/"
+fi
+
 echo ""
-echo "All services up. Add to /etc/hosts if needed:"
-echo "  127.0.0.1  cryptomation.local"
+echo "All services up."
+echo ""
+echo "1) Map the domain (once) — requires sudo:"
+echo "     grep -q '${HOST}' /etc/hosts || echo '127.0.0.1  ${HOST}' | sudo tee -a /etc/hosts"
+echo "2) Open:  $URL"
+echo "   (NGINX_HTTP_PORT=${PORT}, NGINX_SERVER_NAME=${HOST})"

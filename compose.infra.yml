@@ -1,0 +1,26 @@
+# Shared infra — included by bootstrap and by project compose files.
+# Do not run this file alone.
+
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: cryptomation_nginx
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Used by /etc/nginx/templates/*.template → conf.d via envsubst
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-cryptomation.local}
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Official nginx image: *.template → envsubst → /etc/nginx/conf.d/
+      - ./nginx/templates:/etc/nginx/templates:ro
+    networks:
+      - cryptomation_shared
+
+networks:
+  cryptomation_shared:
+    name: cryptomation_shared
+    driver: bridge

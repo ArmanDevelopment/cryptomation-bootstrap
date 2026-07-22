@@ -1,13 +1,11 @@
 # =============================================================================
-# cryptomation-frontend — Nginx Virtual Host
+# cryptomation-frontend — Nginx Virtual Host (templated)
 #
-# Routes: http://cryptomation.local → cryptomation-frontend:3000
-#
-# "cryptomation-frontend" resolves via Docker DNS because both nginx and the
-# frontend container share the cryptomation_shared network.
+# server_name comes from bootstrap .env → NGINX_SERVER_NAME
+# On container start, nginx image runs envsubst into /etc/nginx/conf.d/
 #
 # Add to host /etc/hosts:
-#   127.0.0.1  cryptomation.local
+#   127.0.0.1  <NGINX_SERVER_NAME>
 # =============================================================================
 
 upstream cryptomation_frontend {
@@ -17,9 +15,9 @@ upstream cryptomation_frontend {
 
 server {
     listen  80;
-    server_name  cryptomation.local;
+    server_name  ${NGINX_SERVER_NAME};
 
-    # Next.js HMR WebSocket — browser connects ws://cryptomation.local/_next/webpack-hmr
+    # Next.js HMR WebSocket
     location /_next/webpack-hmr {
         proxy_pass           http://cryptomation_frontend;
         proxy_http_version   1.1;
