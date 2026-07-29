@@ -5,7 +5,8 @@
 # base — shared foundation
 # -----------------------------------------------------------------------------
 FROM node:24-alpine AS base
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat \
+ && npm install -g npm@12.0.1
 WORKDIR /app
 
 # -----------------------------------------------------------------------------

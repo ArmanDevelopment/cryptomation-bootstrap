@@ -1,16 +1,16 @@
 name: cryptomation-bootstrap
 
 # =============================================================================
-# Entry point: includes shared infra + all projects.
+# Entry point: includes projects (each project pulls shared infra via its
+# own compose.infra.yml → ../../compose.infra.yml).
 #
 # ADDING A NEW PROJECT:
-#   1. Create projects/<name>/ with its own docker-compose.yml
-#      (include ../../compose.infra.yml like cryptomation-frontend)
-#   2. Add an include entry below for that file
-#   3. Add nginx/conf.d/<name>.conf
+#   1. Create projects/<name>/ with docker-compose.yml + compose.infra.yml
+#      (compose.infra.yml includes ../../compose.infra.yml)
+#   2. Add an include entry below for that project's docker-compose.yml
+#   3. Add nginx/templates/<name>.conf.template
 #   4. ./scripts/start.sh
 # =============================================================================
 
 include:
-  - path: compose.infra.yml
   - path: projects/cryptomation-frontend/docker-compose.yml

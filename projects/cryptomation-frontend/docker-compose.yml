@@ -1,5 +1,11 @@
+name: cryptomation-bootstrap
+
 # =============================================================================
 # Frontend app. Safe to run from this directory or via bootstrap.
+#
+# Project name matches root docker-compose.yml so shared volumes/networks
+# (e.g. cryptomation_frontend_node_modules) are not re-claimed by a different
+# compose project when running from this directory.
 #
 # From this directory:
 #   cp .env.example .env
@@ -10,7 +16,7 @@
 # =============================================================================
 
 include:
-  - path: ../../compose.infra.yml
+  - path: compose.infra.yml
 
 services:
   cryptomation-frontend:

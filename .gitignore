@@ -19,6 +19,10 @@ projects/**/.output/
 projects/**/dist/
 projects/**/.next/
 
+# Nginx — generated at start from projects/*/nginx/ (keep nginx/nginx.conf tracked)
+nginx/templates/
+nginx/conf.d/
+
 # Logs
 *.log
 logs/
