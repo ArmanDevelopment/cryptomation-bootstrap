@@ -1,4 +1,11 @@
-.PHONY: start stop start-build stop-volumes status
+.PHONY: start stop start-build stop-volumes status shell shell-list
+
+# make shell
+# make shell service=cryptomation-frontend
+# make shell service=nginx shell_bin=sh
+# make shell-list
+service   ?= cryptomation-frontend
+shell_bin ?= bash
 
 start:
 	./scripts/start.sh
@@ -14,3 +21,9 @@ stop-volumes:
 
 status:
 	./scripts/status.sh
+
+shell:
+	./scripts/shell.sh $(service) $(shell_bin)
+
+shell-list:
+	./scripts/shell-list.sh
