@@ -99,12 +99,45 @@ cryptomation_ensure_volume() {
   echo "[bootstrap] Created docker volume: $name"
 }
 
-# Run all pre-start syncs (env + nginx templates + shared network).
+# Copy a fast ./shell helper into sibling app repos (e.g. ../cryptomation-frontend).
+# Invokes bootstrap: make shell service=<name>
+cryptomation_sync_project_shell_helpers() {
+  local root="${1:-$ROOT}"
+  local template="$root/scripts/_utils/templates/project-shell.sh"
+  local project_dir name sibling dest synced=0
+
+  if [[ ! -f "$template" ]]; then
+    echo "[shell] Warning: template missing: $template"
+    return 0
+  fi
+
+  for project_dir in "$root/projects"/*/; do
+    [[ -d "$project_dir" ]] || continue
+    name="$(basename "$project_dir")"
+    [[ -f "$project_dir/docker-compose.yml" ]] || continue
+
+    sibling="$(cd "$root/.." && pwd)/$name"
+    [[ -d "$sibling" ]] || continue
+
+    dest="$sibling/shell"
+    cp "$template" "$dest"
+    chmod +x "$dest"
+    echo "[shell] Synced $name/shell → make shell service=…"
+    synced=$((synced + 1))
+  done
+
+  if [[ "$synced" -eq 0 ]]; then
+    echo "[shell] No sibling app dirs found to sync ./shell into (expected ../<project-name>/)"
+  fi
+}
+
+# Run all pre-start syncs (env + nginx templates + shared network + shell helpers).
 cryptomation_sync_all() {
   local root="${1:-$ROOT}"
   cryptomation_sync_env "$root"
   cryptomation_sync_nginx_templates "$root"
   cryptomation_ensure_network cryptomation_shared
+  cryptomation_sync_project_shell_helpers "$root"
 }
 
 # Allow: ./scripts/_utils/sync.sh  or bash scripts/_utils/*.sh patterns via this entry
@@ -114,9 +147,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     env) cryptomation_sync_env ;;
     nginx|nginx-templates) cryptomation_sync_nginx_templates ;;
     network) cryptomation_ensure_network ;;
+    shell|shell-helpers) cryptomation_sync_project_shell_helpers ;;
     all) cryptomation_sync_all ;;
     *)
-      echo "Usage: $0 [all|env|nginx|network]"
+      echo "Usage: $0 [all|env|nginx|network|shell]"
       exit 1
       ;;
   esac
