@@ -6,6 +6,9 @@
 _cryptomation_utils_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${ROOT:=$(cd "${_cryptomation_utils_dir}/../.." && pwd)}"
 
+# shellcheck source=scripts/_utils/env-prompt.sh
+source "${_cryptomation_utils_dir}/env-prompt.sh"
+
 # Ensure bootstrap .env and each project's .env exist (from *.example).
 cryptomation_sync_env() {
   local root="${1:-$ROOT}"
@@ -131,9 +134,10 @@ cryptomation_sync_project_shell_helpers() {
   fi
 }
 
-# Run all pre-start syncs (env + nginx templates + shared network + shell helpers).
+# Run all pre-start syncs (env prompt + env + nginx templates + shared network + shell helpers).
 cryptomation_sync_all() {
   local root="${1:-$ROOT}"
+  cryptomation_prompt_env "$root"
   cryptomation_sync_env "$root"
   cryptomation_sync_nginx_templates "$root"
   cryptomation_ensure_network cryptomation_shared
@@ -144,13 +148,14 @@ cryptomation_sync_all() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   set -euo pipefail
   case "${1:-all}" in
+    prompt|env-prompt) cryptomation_prompt_env ;;
     env) cryptomation_sync_env ;;
     nginx|nginx-templates) cryptomation_sync_nginx_templates ;;
     network) cryptomation_ensure_network ;;
     shell|shell-helpers) cryptomation_sync_project_shell_helpers ;;
     all) cryptomation_sync_all ;;
     *)
-      echo "Usage: $0 [all|env|nginx|network|shell]"
+      echo "Usage: $0 [all|prompt|env|nginx|network|shell]"
       exit 1
       ;;
   esac
