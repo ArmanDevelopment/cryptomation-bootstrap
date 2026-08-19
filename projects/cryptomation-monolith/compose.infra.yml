@@ -1,0 +1,5 @@
+# Project-level infra wrapper — includes bootstrap shared infra.
+# Used by this project's docker-compose.yml (no cross-project links).
+
+include:
+  - path: ../../compose.infra.yml

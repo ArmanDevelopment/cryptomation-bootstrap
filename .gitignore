@@ -21,6 +21,7 @@ projects/**/.next/
 
 # Nginx — generated at start from projects/*/nginx/ (keep nginx/nginx.conf tracked)
 nginx/templates/
+nginx/locations/
 nginx/conf.d/
 
 # Logs

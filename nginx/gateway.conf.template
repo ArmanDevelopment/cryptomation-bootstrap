@@ -1,0 +1,13 @@
+# =============================================================================
+# Shared vhost — all projects on ${NGINX_SERVER_NAME} share this server block.
+#
+# Copied on start into nginx/templates/default.conf.template (gitignored).
+# Location snippets from projects/*/nginx/locations/ are included below.
+# =============================================================================
+
+server {
+    listen  80;
+    server_name  ${NGINX_SERVER_NAME};
+
+    include  /etc/nginx/locations/*.conf;
+}

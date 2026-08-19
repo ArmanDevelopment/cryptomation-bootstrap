@@ -9,7 +9,10 @@ _cryptomation_utils_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/_utils/env-prompt.sh
 source "${_cryptomation_utils_dir}/env-prompt.sh"
 
-# Ensure bootstrap .env and each project's .env exist (from *.example).
+# Bootstrap root .env: create once from .env.example (local ports, never clobber).
+# Project .env: always overwrite from .env.example. If the sibling app repo has
+# .env.example (e.g. Laravel), copy that into bootstrap first so compose uses
+# the original file, not a shortened duplicate.
 cryptomation_sync_env() {
   local root="${1:-$ROOT}"
 
@@ -18,20 +21,29 @@ cryptomation_sync_env() {
     echo "[bootstrap] Created .env from .env.example — edit if needed."
   fi
 
-  local project_dir name
+  local project_dir name sibling sibling_example example
   for project_dir in "$root/projects"/*/; do
     [[ -d "$project_dir" ]] || continue
     name="$(basename "$project_dir")"
     [[ -f "$project_dir/docker-compose.yml" ]] || continue
 
-    if [[ ! -f "$project_dir/.env" && -f "$project_dir/.env.example" ]]; then
-      cp "$project_dir/.env.example" "$project_dir/.env"
-      echo "[$name] Created .env from .env.example — edit if needed."
+    sibling="$(cd "$root/.." && pwd)/$name"
+    sibling_example="$sibling/.env.example"
+    example="${project_dir%/}/.env.example"
+
+    if [[ -f "$sibling_example" ]]; then
+      cp "$sibling_example" "$example"
+      echo "[$name] Synced .env.example ← ../$name/.env.example"
+    fi
+
+    if [[ -f "$example" ]]; then
+      cp "$example" "${project_dir%/}/.env"
+      echo "[$name] Overwrote .env from .env.example"
     fi
   done
 }
 
-# Copy projects/*/nginx configs → nginx/templates/ (gitignored).
+# Copy shared gateway + optional extra project server blocks → nginx/templates/.
 cryptomation_sync_nginx_templates() {
   local root="${1:-$ROOT}"
   local dest="$root/nginx/templates"
@@ -39,6 +51,12 @@ cryptomation_sync_nginx_templates() {
 
   mkdir -p "$dest"
   rm -f "$dest"/*.conf.template
+
+  if [[ -f "$root/nginx/gateway.conf.template" ]]; then
+    cp "$root/nginx/gateway.conf.template" "$dest/default.conf.template"
+    echo "[nginx] Synced templates/default.conf.template ← nginx/gateway.conf.template"
+    synced=$((synced + 1))
+  fi
 
   for project_dir in "$root/projects"/*/; do
     [[ -d "$project_dir" ]] || continue
@@ -62,7 +80,37 @@ cryptomation_sync_nginx_templates() {
   done
 
   if [[ "$synced" -eq 0 ]]; then
-    echo "[nginx] Warning: no project nginx templates found under projects/*/nginx/"
+    echo "[nginx] Warning: no nginx templates found (gateway or projects/*/nginx/)"
+  fi
+}
+
+# Copy projects/*/nginx/locations/* → nginx/locations/ (included by the gateway vhost).
+cryptomation_sync_nginx_locations() {
+  local root="${1:-$ROOT}"
+  local dest="$root/nginx/locations"
+  local project_dir name loc_dir src base dest_name synced=0
+
+  mkdir -p "$dest"
+  rm -f "$dest"/*.conf
+
+  for project_dir in "$root/projects"/*/; do
+    [[ -d "$project_dir" ]] || continue
+    name="$(basename "$project_dir")"
+    loc_dir="$project_dir/nginx/locations"
+    [[ -d "$loc_dir" ]] || continue
+
+    for src in "$loc_dir"/*.conf "$loc_dir"/*.conf.template; do
+      [[ -f "$src" ]] || continue
+      base="$(basename "$src")"
+      dest_name="${base%.template}"
+      cp "$src" "$dest/${name}-${dest_name}"
+      echo "[nginx] Synced locations/${name}-${dest_name} ← projects/${name}/nginx/locations/"
+      synced=$((synced + 1))
+    done
+  done
+
+  if [[ "$synced" -eq 0 ]]; then
+    echo "[nginx] Warning: no location snippets found under projects/*/nginx/locations/"
   fi
 }
 
@@ -134,12 +182,13 @@ cryptomation_sync_project_shell_helpers() {
   fi
 }
 
-# Run all pre-start syncs (env prompt + env + nginx templates + shared network + shell helpers).
+# Run all pre-start syncs (env prompt + env + nginx + shared network + shell helpers).
 cryptomation_sync_all() {
   local root="${1:-$ROOT}"
   cryptomation_prompt_env "$root"
   cryptomation_sync_env "$root"
   cryptomation_sync_nginx_templates "$root"
+  cryptomation_sync_nginx_locations "$root"
   cryptomation_ensure_network cryptomation_shared
   cryptomation_sync_project_shell_helpers "$root"
 }
@@ -151,11 +200,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     prompt|env-prompt) cryptomation_prompt_env ;;
     env) cryptomation_sync_env ;;
     nginx|nginx-templates) cryptomation_sync_nginx_templates ;;
+    locations|nginx-locations) cryptomation_sync_nginx_locations ;;
     network) cryptomation_ensure_network ;;
     shell|shell-helpers) cryptomation_sync_project_shell_helpers ;;
     all) cryptomation_sync_all ;;
     *)
-      echo "Usage: $0 [all|prompt|env|nginx|network|shell]"
+      echo "Usage: $0 [all|prompt|env|nginx|locations|network|shell]"
       exit 1
       ;;
   esac

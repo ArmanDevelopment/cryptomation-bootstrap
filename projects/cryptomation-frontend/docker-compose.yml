@@ -7,8 +7,8 @@ name: cryptomation-bootstrap
 # (e.g. cryptomation_frontend_node_modules) are not re-claimed by a different
 # compose project when running from this directory.
 #
+# .env is always overwritten on start from .env.example.
 # From this directory:
-#   cp .env.example .env
 #   docker compose up -d
 #
 # From bootstrap (all projects):

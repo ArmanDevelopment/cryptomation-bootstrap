@@ -8,9 +8,11 @@ name: cryptomation-bootstrap
 #   1. Create projects/<name>/ with docker-compose.yml + compose.infra.yml
 #      (compose.infra.yml includes ../../compose.infra.yml)
 #   2. Add an include entry below for that project's docker-compose.yml
-#   3. Add nginx/templates/<name>.conf.template
+#   3. Add nginx location snippets under projects/<name>/nginx/locations/
+#      (same host as the frontend) and/or a full vhost *.conf.template
 #   4. ./scripts/start.sh
 # =============================================================================
 
 include:
   - path: projects/cryptomation-frontend/docker-compose.yml
+  - path: projects/cryptomation-monolith/docker-compose.yml
