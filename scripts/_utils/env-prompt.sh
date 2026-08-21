@@ -58,9 +58,23 @@ cryptomation_prompt_env_file() {
   echo "[$label] Created .env"
 }
 
-# Prompt bootstrap root only. Project .env files are always overwritten from
-# .env.example on sync, so prompting them would be discarded.
+# Prompt bootstrap root, then each project that has .env.example but no .env
+# (including after .env was deleted). Sync sibling examples first so prompts
+# use the latest keys.
 cryptomation_prompt_env() {
   local root="${1:-$ROOT}"
+  local project_dir name
+
+  if declare -F cryptomation_sync_project_env_examples >/dev/null; then
+    cryptomation_sync_project_env_examples "$root"
+  fi
+
   cryptomation_prompt_env_file "$root" "bootstrap"
+
+  for project_dir in "$root/projects"/*/; do
+    [[ -d "$project_dir" ]] || continue
+    name="$(basename "$project_dir")"
+    [[ -f "$project_dir/docker-compose.yml" ]] || continue
+    cryptomation_prompt_env_file "${project_dir%/}" "$name"
+  done
 }

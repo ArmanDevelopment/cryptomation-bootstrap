@@ -9,19 +9,12 @@ _cryptomation_utils_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/_utils/env-prompt.sh
 source "${_cryptomation_utils_dir}/env-prompt.sh"
 
-# Bootstrap root .env: create once from .env.example (local ports, never clobber).
-# Project .env: always overwrite from .env.example. If the sibling app repo has
-# .env.example (e.g. Laravel), copy that into bootstrap first so compose uses
-# the original file, not a shortened duplicate.
-cryptomation_sync_env() {
+# Copy sibling app .env.example into projects/*/.env.example (e.g. Laravel).
+# Does not touch .env — run before prompting so keys are current.
+cryptomation_sync_project_env_examples() {
   local root="${1:-$ROOT}"
-
-  if [[ ! -f "$root/.env" && -f "$root/.env.example" ]]; then
-    cp "$root/.env.example" "$root/.env"
-    echo "[bootstrap] Created .env from .env.example — edit if needed."
-  fi
-
   local project_dir name sibling sibling_example example
+
   for project_dir in "$root/projects"/*/; do
     [[ -d "$project_dir" ]] || continue
     name="$(basename "$project_dir")"
@@ -35,12 +28,46 @@ cryptomation_sync_env() {
       cp "$sibling_example" "$example"
       echo "[$name] Synced .env.example ← ../$name/.env.example"
     fi
+  done
+}
 
-    if [[ -f "$example" ]]; then
-      cp "$example" "${project_dir%/}/.env"
-      echo "[$name] Overwrote .env from .env.example"
+# Create missing .env from .env.example (never clobber). Interactive runs
+# prompt first via cryptomation_prompt_env; this is the non-interactive fallback.
+cryptomation_ensure_env_files() {
+  local root="${1:-$ROOT}"
+  local project_dir name sibling example target
+
+  if [[ ! -f "$root/.env" && -f "$root/.env.example" ]]; then
+    cp "$root/.env.example" "$root/.env"
+    echo "[bootstrap] Created .env from .env.example — edit if needed."
+  fi
+
+  for project_dir in "$root/projects"/*/; do
+    [[ -d "$project_dir" ]] || continue
+    name="$(basename "$project_dir")"
+    [[ -f "$project_dir/docker-compose.yml" ]] || continue
+
+    example="${project_dir%/}/.env.example"
+    target="${project_dir%/}/.env"
+    sibling="$(cd "$root/.." && pwd)/$name"
+
+    if [[ ! -f "$target" && -f "$example" ]]; then
+      cp "$example" "$target"
+      echo "[$name] Created .env from .env.example"
+    fi
+
+    # Laravel (and similar) read the sibling repo .env, not the bootstrap copy.
+    if [[ -d "$sibling" && ! -f "$sibling/.env" && -f "$target" ]]; then
+      cp "$target" "$sibling/.env"
+      echo "[$name] Created ../$name/.env from projects/$name/.env"
     fi
   done
+}
+
+cryptomation_sync_env() {
+  local root="${1:-$ROOT}"
+  cryptomation_sync_project_env_examples "$root"
+  cryptomation_ensure_env_files "$root"
 }
 
 # Copy shared gateway + optional extra project server blocks → nginx/templates/.
@@ -186,7 +213,7 @@ cryptomation_sync_project_shell_helpers() {
 cryptomation_sync_all() {
   local root="${1:-$ROOT}"
   cryptomation_prompt_env "$root"
-  cryptomation_sync_env "$root"
+  cryptomation_ensure_env_files "$root"
   cryptomation_sync_nginx_templates "$root"
   cryptomation_sync_nginx_locations "$root"
   cryptomation_ensure_network cryptomation_shared

@@ -6,7 +6,7 @@ name: cryptomation-bootstrap
 # Project name matches root docker-compose.yml so shared volumes/networks
 # are not re-claimed by a different compose project when running from here.
 #
-# .env is always overwritten on start from the Laravel sibling .env.example.
+# .env is created from the Laravel sibling .env.example when missing (prompted on TTY).
 # From this directory:
 #   docker compose up -d
 #
