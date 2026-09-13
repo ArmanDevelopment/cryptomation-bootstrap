@@ -1,7 +1,8 @@
 name: cryptomation-bootstrap
 
 # =============================================================================
-# Laravel monolith (PHP-FPM). Safe to run from this directory or via bootstrap.
+# Laravel monolith (PHP-FPM + queue:work + schedule:work).
+# Safe to run from this directory or via bootstrap.
 #
 # Project name matches root docker-compose.yml so shared volumes/networks
 # are not re-claimed by a different compose project when running from here.
@@ -17,41 +18,57 @@ name: cryptomation-bootstrap
 include:
   - path: compose.infra.yml
 
+# Shared by php-fpm, queue:work, and schedule:work. Command is overridden
+# on the worker/scheduler services (image still starts php-fpm by default).
+x-monolith-common: &monolith-common
+  image: cryptomation-bootstrap-cryptomation-monolith
+  build:
+    context: ../../../cryptomation-monolith
+    dockerfile: ../cryptomation-bootstrap/projects/cryptomation-monolith/Dockerfile
+  restart: unless-stopped
+  # Do not env_file the Laravel .env.example copy: it has APP_KEY= empty,
+  # which would override the bind-mounted sibling .env key. Docker DNS
+  # and DB/MAIL hosts are set here; APP_KEY stays in ../cryptomation-monolith/.env.
+  environment:
+    APP_ENV: local
+    APP_DEBUG: "true"
+    APP_URL: ${APP_URL:-http://cryptomation.local:8081}
+    DB_CONNECTION: pgsql
+    DB_HOST: cryptomation_postgres
+    DB_PORT: "5432"
+    DB_DATABASE: ${POSTGRES_DB:-cryptomation}
+    DB_USERNAME: ${POSTGRES_USER:-cryptomation}
+    DB_PASSWORD: ${POSTGRES_PASSWORD:-cryptomation}
+    MAIL_MAILER: smtp
+    MAIL_HOST: cryptomation_mailpit
+    MAIL_PORT: "1025"
+    MAIL_SCHEME: "null"
+    MAIL_USERNAME: "null"
+    MAIL_PASSWORD: "null"
+    MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@cryptomation.local}
+  volumes:
+    - ../../../cryptomation-monolith:/var/www/html
+    - monolith_vendor:/var/www/html/vendor
+  depends_on:
+    cryptomation_postgres:
+      condition: service_healthy
+  networks:
+    - cryptomation_shared
+
 services:
   cryptomation-monolith:
-    build:
-      context: ../../../cryptomation-monolith
-      dockerfile: ../cryptomation-bootstrap/projects/cryptomation-monolith/Dockerfile
+    <<: *monolith-common
     container_name: cryptomation-monolith
-    restart: unless-stopped
-    # Do not env_file the Laravel .env.example copy: it has APP_KEY= empty,
-    # which would override the bind-mounted sibling .env key. Docker DNS
-    # and DB/MAIL hosts are set here; APP_KEY stays in ../cryptomation-monolith/.env.
-    environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: ${APP_URL:-http://cryptomation.local:8081}
-      DB_CONNECTION: pgsql
-      DB_HOST: cryptomation_postgres
-      DB_PORT: "5432"
-      DB_DATABASE: ${POSTGRES_DB:-cryptomation}
-      DB_USERNAME: ${POSTGRES_USER:-cryptomation}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-cryptomation}
-      MAIL_MAILER: smtp
-      MAIL_HOST: cryptomation_mailpit
-      MAIL_PORT: "1025"
-      MAIL_SCHEME: "null"
-      MAIL_USERNAME: "null"
-      MAIL_PASSWORD: "null"
-      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@cryptomation.local}
-    volumes:
-      - ../../../cryptomation-monolith:/var/www/html
-      - monolith_vendor:/var/www/html/vendor
-    depends_on:
-      cryptomation_postgres:
-        condition: service_healthy
-    networks:
-      - cryptomation_shared
+
+  cryptomation-monolith-queue:
+    <<: *monolith-common
+    container_name: cryptomation-monolith-queue
+    command: ["php", "artisan", "queue:work", "--verbose", "--tries=3"]
+
+  cryptomation-monolith-scheduler:
+    <<: *monolith-common
+    container_name: cryptomation-monolith-scheduler
+    command: ["php", "artisan", "schedule:work"]
 
 volumes:
   monolith_vendor:
