@@ -5,8 +5,16 @@
 # Location snippets from projects/*/nginx/locations/ are included below.
 # =============================================================================
 
+# Catch-all. Without default_server, the only vhost answers every Host,
+# so http://localhost still serves the apps.
 server {
-    listen  80;
+    listen       80 default_server;
+    server_name  _;
+    return       444;
+}
+
+server {
+    listen       80;
     server_name  ${NGINX_SERVER_NAME};
 
     include  /etc/nginx/locations/*.conf;
